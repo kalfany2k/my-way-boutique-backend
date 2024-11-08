@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from uuid import uuid4
-from app import models
+from app import enums, models
 from decimal import Decimal
 from datetime import datetime, timezone
 import random
@@ -42,9 +42,9 @@ def generate_mock_products(db_session, count=50):
     used_names = set()
     
     for _ in range(count):
-        product_type = random.choice(list(models.ItemTypesEnum))
-        categories = random.sample(list(models.ItemCategoriesEnum), k=random.randint(1, 3))
-        gender = random.choice(list(models.GenderEnum))
+        product_type = random.choice(list(enums.ItemTypesEnum))
+        categories = random.sample(list(enums.ItemCategoriesEnum), k=random.randint(1, 3))
+        gender = random.choice(list(enums.GenderEnum))
 
         name = generate_unique_name(product_type.value, random.choice(categories).value, used_names)
 

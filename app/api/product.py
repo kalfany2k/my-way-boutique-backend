@@ -52,7 +52,7 @@ def get_product(id: str, db: Session = Depends(get_db)):
     
     return found_post
 
-@router.get("/{id}/reviews", response_model=List[schemas.ReviewBase])
+@router.get("/{id}/reviews", response_model=List[schemas.ReviewResponse])
 def get_product_reviews(id: str, db: Session = Depends(get_db)):
     found_post = db.query(models.Product).filter(models.Product.id == id).first()
 

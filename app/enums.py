@@ -34,6 +34,7 @@ class ItemCategoriesEnum(str, Enum):
     brodate = "brodate"
     craciun = "craciun"
     paste = "paste"
+    economic = "economic"
 
 class GenderEnum(str, Enum):
     M = "M"

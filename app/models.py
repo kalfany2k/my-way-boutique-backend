@@ -82,7 +82,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     total_amount = Column(Numeric(10, 2), nullable=False)
-    status = Column(String, nullable=False, server_default=text('PENDING'))
+    status = Column(String, nullable=False)
     shipping_address = Column(JSON, nullable=False)
     payment_intent_id = Column(String, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=text('now()'))

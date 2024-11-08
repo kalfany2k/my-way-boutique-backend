@@ -75,5 +75,11 @@ class CartItemBase(BaseModel):
 class ReviewBase(BaseModel):
     product_id: str
     user_id: int
-    message: str
+    message: Optional[str]
     stars: int
+
+class ReviewResponse(ReviewBase):
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

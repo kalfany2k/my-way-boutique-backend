@@ -9,7 +9,7 @@ router = APIRouter(
     prefix="/reviews"
 )
 
-@router.post("/{product_id}", response_model=schemas.ReviewBase)
+@router.post("/{product_id}", response_model=schemas.ReviewResponse)
 def post_review(product_id: str, message: str = Form(None), stars: int = Form(...), token: dict = Depends(oauth2.decode_token), db: Session = Depends(get_db)):
     if not db.query(models.Product).filter(models.Product.id == product_id).first():
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {product_id} nu exista')
