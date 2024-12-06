@@ -1,18 +1,5 @@
 from enum import Enum
 
-class ItemTypesPluralSingular(str, Enum):
-    trusouri = "trusou"
-    lumanari = "lumanare"
-    cutii = "cutie"
-    accesorii = "accesoriu"
-    cadouri = "cadou"
-    tricouri = "tricou"
-    tavite = "tava"
-    haine = "haina"
-    prosoape = "prosop"
-    perii = "perie"
-    oglinda = "oglinzi"
-
 class ItemTypesEnum(str, Enum):
     trusou = "trusou"
     lumanare = "lumanare"
@@ -30,6 +17,7 @@ class ItemCategoriesEnum(str, Enum):
     botez = "botez"
     prima_baie = "prima_baie"
     prima_aniversare = "prima_aniversare"
+    aniversare = "aniversare"
     imprimate = "imprimate"
     brodate = "brodate"
     craciun = "craciun"

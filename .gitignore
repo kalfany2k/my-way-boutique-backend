@@ -27,6 +27,7 @@ venv/
 ENV/
 env/
 .env
+.aws
 
 # IDE
 .idea/

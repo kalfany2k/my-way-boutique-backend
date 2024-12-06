@@ -25,7 +25,7 @@ class Product(Base):
     type = Column(String, nullable=False)
     categories = Column(ARRAY(String), nullable=True)
     price = Column(Numeric(10, 2), nullable=False)
-    rating = Column(Float, nullable=True)
+    rating = Column(Numeric(10, 2), nullable=True, server_default=text('0'))
     primary_image = Column(String, nullable=True)
     secondary_images = Column(ARRAY(String), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
@@ -52,28 +52,30 @@ class Cart(Base):
     __tablename__ = "carts"
 
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    product_id = Column(String, ForeignKey("products.id"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE"))
+    '''MODIFIED PRODUCT_NAME FROM CART TO CONTAIN FOREIGN KEY TO PRODUCT NAME'''
+    product_name = Column(String, ForeignKey("products.name", ondelete="CASCADE"))
+    personalised_name = Column(String, nullable=True)
+    personalised_date = Column(String, nullable=True)
+    personalised_message = Column(String, nullable=True)
+    personalised_size = Column(String, nullable=True)
+    personalised_member = Column(String, nullable=True)
     quantity = Column(Integer, nullable=False, server_default=text('1'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
-
-    __table_args__ = (
-        UniqueConstraint('user_id', 'product_id', name='uix_user_product_cart'),
-    )
 
 class Review(Base):
     __tablename__ = "reviews"
 
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    product_id = Column(String, ForeignKey("products.id"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE"))
     message = Column(String, nullable=True)
     stars = Column(Integer, nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=text('now()'))
 
     __table_args__ = (
         UniqueConstraint('user_id', 'product_id', name='uix_user_product_reviews'),
-        CheckConstraint('stars >= 1 AND stars <= 5', name='check_valid_stars'),
     )
 
 class Order(Base):

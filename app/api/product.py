@@ -1,14 +1,13 @@
 from typing import Optional
-
 from sqlalchemy import func
-from app.database import get_db
 from app import models, oauth2, schemas, enums
+from app.database import get_db
+from app.s3 import upload_file_to_s3, delete_file_from_s3
+from botocore.exceptions import ClientError
 from fastapi import status, HTTPException, Depends, APIRouter, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import List
-import os
-import shutil
 
 router = APIRouter(
     tags=['Products'],
@@ -23,8 +22,8 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
         query = query.filter(models.Product.name.ilike(f"%{search}%"))
 
     if categories:
-        categories = (categories.split("+"))
-        query = query.filter(models.Product.categories.contains([categories]))
+        categories = categories.split("+")
+        query = query.filter(models.Product.categories.contains(categories))
 
     if type:
         try: 
@@ -39,6 +38,8 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
         query = query.filter(models.Product.item_gender == gender_value)
 
     count = query.with_entities(func.count()).scalar()
+    if limit > 16:
+        limit = 16
     products = query.offset(skip * limit).limit(limit).all()
 
     return {"items": products, "count": count}
@@ -64,7 +65,7 @@ def get_product_reviews(id: str, db: Session = Depends(get_db)):
     return reviews
 
 @router.post("")
-def post_product(
+async def post_product(
     id: str = Form(...),
     name: str = Form(...),
     item_gender: schemas.GenderEnum = Form(...),
@@ -77,6 +78,7 @@ def post_product(
     token: dict = Depends(oauth2.verify_admin_token)
 ):
     item_data = schemas.ProductBase(id=id, name=name, item_gender=item_gender, type=type, price=price, categories=categories)
+    MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
     if db.query(models.Product).filter(models.Product.id == item_data.id).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul cu id-ul {item_data.id} deja exista')
@@ -86,34 +88,68 @@ def post_product(
     
     if item_data.type == enums.ItemTypesEnum.tricou or item_data.type == enums.ItemTypesEnum.haina and not item_data.size in enums.SizesEnum._value2member_map_:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Dimensiunea aleasa este invalida')
-
-    # Handle file upload
-    upload_dir = "uploads"  # Make sure this directory exists
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, primary_image.filename)
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(primary_image.file, buffer)
+    if int(primary_image.headers.get('content-length', 0)) > MAX_SIZE:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f'Dimensiunea imaginii principale este mai mare de 5MB')
+    
+    for image in secondary_images:
+        if int(image.headers.get('content-length', 0)) > MAX_SIZE:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f'Dimensiunea imaginii {image.filename} este mai mare de 5MB')
 
-    # Create new product instance
-    new_item = models.Product(**item_data.model_dump())
-    new_item.primary_image = file_path  # Save the file path in the database
+    try:
+        primary_image_url = await upload_file_to_s3(primary_image, item_data.type.value)
+        secondary_images_urls = []
+        for image in secondary_images:
+            url = await upload_file_to_s3(image, item_data.type.value)
+            secondary_images_urls.append(url)
 
-    # Add to database
-    db.add(new_item)
-    db.commit()
-    db.refresh(new_item)
+        # Create new product instance
+        new_item = models.Product(**item_data.model_dump())
+        new_item.primary_image = primary_image_url
+        new_item.secondary_images = secondary_images_urls
 
-    return new_item
+        # Add to database
+        db.add(new_item)
+        db.commit()
+        db.refresh(new_item)
+
+        return { "status": status.HTTP_201_CREATED }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+           status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+           detail=str(e)
+       )
 
 @router.delete("/{id}")
-def delete_product(id: str, db: Session = Depends(get_db)):
+async def delete_product(id: str, db: Session = Depends(get_db)):
     deleted_product = db.query(models.Product).filter(models.Product.id == id).first()
 
     if not deleted_product:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul cu id-ul {id} nu exista')
     
-    db.delete(deleted_product)
-    db.commit()
-    
-    return { "status": status.HTTP_204_NO_CONTENT, "detail": f'Produsul cu id-ul {id} a fost sters cu succes' }
+    try:
+        if deleted_product.primary_image:
+            key = deleted_product.primary_image.split('/')  # Get filename from URL
+            if len(key) > 2:
+                await delete_file_from_s3(key[-1], key[-2], db)
+
+        if deleted_product.secondary_images:
+            for image in deleted_product.secondary_images:
+                key = image.split('/')
+                if len(key) > 2:
+                    await delete_file_from_s3(key[-1], key[-2], db)
+
+        db.delete(deleted_product)
+        db.commit()
+       
+        return {
+           "status": status.HTTP_204_NO_CONTENT, 
+           "detail": f'Produsul cu id-ul {id} a fost sters cu succes'
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+           status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+           detail=str(e)
+       )

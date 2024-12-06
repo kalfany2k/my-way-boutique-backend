@@ -4,7 +4,9 @@ from datetime import datetime
 from .enums import GenderEnum, ItemTypesEnum, ItemCategoriesEnum
 import re
 
-class userLogin(BaseModel):
+''''BEGIN-USER'''
+
+class UserLogin(BaseModel):
     email: str
     password: str
 
@@ -38,7 +40,11 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+''''END-USER'''
     
+''''BEGIN-PRODUCT'''    
+
 class ProductBase(BaseModel):
     id: str
     name: str
@@ -48,7 +54,7 @@ class ProductBase(BaseModel):
     price: float
 
 class ProductResponse(ProductBase):
-    rating: float
+    rating: Optional[float]
     primary_image: Optional[str] = None
     secondary_images: Optional[List[str]] = None
     created_at: datetime
@@ -56,9 +62,15 @@ class ProductResponse(ProductBase):
     class Config:
         from_attributes = True
 
+''''END-PRODUCT'''
+
+''''BEGIN-QUERY'''
+
 class QueryResponse(BaseModel):
     items: List[ProductResponse]
     count: int
+
+''''END-QUERY'''
 
 class SetBase(BaseModel):
     set_name: str
@@ -67,7 +79,19 @@ class SetBase(BaseModel):
 class CartItemBase(BaseModel):
     _user_id: int
     product_id: str
+    product_name: str
     quantity: int
+    personalised_name: Optional[str]
+    personalised_date: Optional[str]
+    personalised_message: Optional[str]
+    personalised_size: Optional[str]
+    personalised_member: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+class CartItemResponse(CartItemBase):
+    id: int
 
     class Config:
         from_attributes = True

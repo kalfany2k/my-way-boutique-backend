@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from app import schemas, models, database
-from .config import settings
+from .db_config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 security = HTTPBearer()
