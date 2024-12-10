@@ -56,6 +56,9 @@ class Cart(Base):
     product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE"))
     '''MODIFIED PRODUCT_NAME FROM CART TO CONTAIN FOREIGN KEY TO PRODUCT NAME'''
     product_name = Column(String, ForeignKey("products.name", ondelete="CASCADE"))
+    product_price = Column(Integer, nullable=False)
+    product_type = Column(String, nullable=False)
+    product_primary_image = Column(String, nullable=False)
     personalised_name = Column(String, nullable=True)
     personalised_date = Column(String, nullable=True)
     personalised_message = Column(String, nullable=True)

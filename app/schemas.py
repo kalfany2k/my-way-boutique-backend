@@ -79,8 +79,11 @@ class SetBase(BaseModel):
 class CartItemBase(BaseModel):
     _user_id: int
     product_id: str
-    product_name: str
     quantity: int
+    product_name: str
+    product_type: str
+    product_price: float
+    product_primary_image: str
     personalised_name: Optional[str]
     personalised_date: Optional[str]
     personalised_message: Optional[str]

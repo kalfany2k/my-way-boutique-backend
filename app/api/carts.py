@@ -13,7 +13,6 @@ router = APIRouter(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def add_to_cart(
     product_id: str = Form(...),
-    product_name: str = Form(...),
     quantity: int = Form(...),
     personalised_name: Optional[str] = Form(None),
     personalised_date: Optional[str] = Form(None), 
@@ -24,19 +23,24 @@ def add_to_cart(
     db: Session = Depends(get_db)
 ):
     try:
+        found_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+
+        if not found_product:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul cu id-ul {cart_item_data.product_id} nu exista')
+
         cart_item_data = schemas.CartItemBase(
             product_id=product_id, 
-            product_name=product_name,
             quantity=quantity, 
+            product_name=found_product.name,
+            product_type=found_product.type,
+            product_price=found_product.price,
+            product_primary_image=found_product.primary_image,
             personalised_name=personalised_name, 
             personalised_message=personalised_message,
             personalised_date=personalised_date,
             personalised_size=personalised_size,
             personalised_member=personalised_member
         )
-
-        if not db.query(models.Product).filter(models.Product.id == product_id).first():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul cu id-ul {cart_item_data.product_id} nu exista')
 
         existing_cart_items = db.query(models.Cart).filter(models.Cart.user_id == jwt_content.get("user_id"), models.Cart.product_id == cart_item_data.product_id).all()
         if existing_cart_items:
@@ -60,7 +64,7 @@ def add_to_cart(
                     db.commit()
                     db.refresh(cart_item)
 
-                    return { "status": status.HTTP_200_OK, "detail": "Cantitatea din cos a obiectului a fost modificata cu succes" }
+                    return { "status": status.HTTP_200_OK, "detail": "Cantitatea din cos a obiectului a fost modificata cu succes", "item": cart_item, "changed_quantity": "yes" }
 
         if (quantity < 1):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Cantitatea trebuie sa fie mai mare sau egala cu 1')
