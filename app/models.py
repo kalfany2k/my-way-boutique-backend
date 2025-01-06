@@ -25,7 +25,7 @@ class Product(Base):
     type = Column(String, nullable=False)
     categories = Column(ARRAY(String), nullable=True)
     price = Column(Numeric(10, 2), nullable=False)
-    rating = Column(Numeric(10, 2), nullable=True, server_default=text('0'))
+    rating = Column(Numeric(10, 2), nullable=True)
     primary_image = Column(String, nullable=True)
     secondary_images = Column(ARRAY(String), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
@@ -52,9 +52,9 @@ class Cart(Base):
     __tablename__ = "carts"
 
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    guest_id = Column(String, nullable=True)
     product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE"))
-    '''MODIFIED PRODUCT_NAME FROM CART TO CONTAIN FOREIGN KEY TO PRODUCT NAME'''
     product_name = Column(String, ForeignKey("products.name", ondelete="CASCADE"))
     product_price = Column(Integer, nullable=False)
     product_type = Column(String, nullable=False)

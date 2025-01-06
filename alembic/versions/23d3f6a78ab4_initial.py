@@ -1,8 +1,8 @@
-"""initial commit
+"""initial
 
-Revision ID: 30e69d9415c1
+Revision ID: 23d3f6a78ab4
 Revises: 
-Create Date: 2024-11-08 18:19:07.874272
+Create Date: 2024-12-21 14:22:26.875120
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '30e69d9415c1'
+revision: str = '23d3f6a78ab4'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,7 +27,7 @@ def upgrade() -> None:
     sa.Column('type', sa.String(), nullable=False),
     sa.Column('categories', postgresql.ARRAY(sa.String()), nullable=True),
     sa.Column('price', sa.Numeric(precision=10, scale=2), nullable=False),
-    sa.Column('rating', sa.Float(), nullable=True),
+    sa.Column('rating', sa.Numeric(precision=10, scale=2), server_default=sa.text('0'), nullable=True),
     sa.Column('primary_image', sa.String(), nullable=True),
     sa.Column('secondary_images', postgresql.ARRAY(sa.String()), nullable=True),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -41,29 +41,25 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('set_name')
     )
-    op.create_table('users',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('email', sa.String(), nullable=False),
-    sa.Column('surname', sa.String(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
-    sa.Column('password', sa.String(), nullable=False),
-    sa.Column('gender', sa.String(), nullable=False),
-    sa.Column('role', sa.String(), nullable=False),
-    sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('email')
-    )
-    op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_table('carts',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('product_id', sa.String(), nullable=True),
+    sa.Column('product_name', sa.String(), nullable=True),
+    sa.Column('product_price', sa.Integer(), nullable=False),
+    sa.Column('product_type', sa.String(), nullable=False),
+    sa.Column('product_primary_image', sa.String(), nullable=False),
+    sa.Column('personalised_name', sa.String(), nullable=True),
+    sa.Column('personalised_date', sa.String(), nullable=True),
+    sa.Column('personalised_message', sa.String(), nullable=True),
+    sa.Column('personalised_size', sa.String(), nullable=True),
+    sa.Column('personalised_member', sa.String(), nullable=True),
     sa.Column('quantity', sa.Integer(), server_default=sa.text('1'), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id', 'product_id', name='uix_user_product_cart')
+    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['product_name'], ['products.name'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('orders',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -83,9 +79,8 @@ def upgrade() -> None:
     sa.Column('message', sa.String(), nullable=True),
     sa.Column('stars', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint('stars >= 1 AND stars <= 5', name='check_valid_stars'),
-    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id', 'product_id', name='uix_user_product_reviews')
     )
@@ -119,8 +114,6 @@ def downgrade() -> None:
     op.drop_table('reviews')
     op.drop_table('orders')
     op.drop_table('carts')
-    op.drop_index(op.f('ix_users_id'), table_name='users')
-    op.drop_table('users')
     op.drop_table('sets')
     op.drop_table('products')
     # ### end Alembic commands ###

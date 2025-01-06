@@ -4,6 +4,14 @@ from datetime import datetime
 from .enums import GenderEnum, ItemTypesEnum, ItemCategoriesEnum
 import re
 
+'''BEGIN-COOKIES'''
+
+class Cookies(BaseModel):
+    authToken: str | None = None
+    guestSessionToken: str | None = None
+
+'''END-COOKIES'''
+
 ''''BEGIN-USER'''
 
 class UserLogin(BaseModel):

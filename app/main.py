@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 origins = [
-    "http://localhost:3000"
+    "https://mwb.local"
 ]
 
 app.add_middleware(

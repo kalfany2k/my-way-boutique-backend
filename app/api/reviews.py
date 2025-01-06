@@ -22,7 +22,7 @@ def update_rating(product_id: str, db: Session):
         db.commit()
 
 @router.post("/{product_id}", response_model=schemas.ReviewResponse)
-def post_review(product_id: str, message: str = Form(None), stars: int = Form(...), token: dict = Depends(oauth2.decode_token), db: Session = Depends(get_db)):
+def post_review(product_id: str, message: str = Form(None), stars: int = Form(...), token: dict = Depends(oauth2.decode_authorization_token_with_exception), db: Session = Depends(get_db)):
     if not 1 <= stars <= 5:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 

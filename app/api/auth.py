@@ -23,3 +23,9 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session =
     user_data = schemas.UserResponse.model_validate(user)
 
     return {"access_token": access_token, "token_type": "bearer", "user": jsonable_encoder(user_data)}
+
+@router.get("/login_guest")
+def create_guest_session():
+    guest_token = oauth2.create_guest_token()
+
+    return {"guest_token": guest_token}
