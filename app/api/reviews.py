@@ -37,7 +37,7 @@ def post_review(product_id: str, message: str = Form(None), stars: int = Form(..
                         .filter(models.Review.product_id == product_id, models.Review.user_id == token.get("user_id"))\
                         .first()
     if existing_review:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You have already reviewed this product")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ai dat deja o recenzie acestui produs")
     
     review_data = schemas.ReviewBase(product_id=product_id, user_id=token.get("user_id"), message=message, stars=stars)
 

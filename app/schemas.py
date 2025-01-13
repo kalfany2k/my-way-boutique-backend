@@ -65,6 +65,7 @@ class ProductResponse(ProductBase):
     rating: Optional[float]
     primary_image: Optional[str] = None
     secondary_images: Optional[List[str]] = None
+    total_sales: int
     created_at: datetime
 
     class Config:
@@ -115,6 +116,8 @@ class ReviewBase(BaseModel):
 
 class ReviewResponse(ReviewBase):
     created_at: datetime
+    surname: str
+    name: str
 
     class Config:
         from_attributes = True

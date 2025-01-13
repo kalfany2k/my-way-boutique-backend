@@ -3,10 +3,8 @@ from sqlalchemy import func
 from app import models, oauth2, schemas, enums
 from app.database import get_db
 from app.s3 import upload_file_to_s3, delete_file_from_s3
-from botocore.exceptions import ClientError
 from fastapi import status, HTTPException, Depends, APIRouter, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import JSONB
 from typing import List
 
 router = APIRouter(
@@ -15,7 +13,7 @@ router = APIRouter(
 )
 
 @router.get("", response_model=schemas.QueryResponse)
-def get_products(categories: Optional[str] = Query(None), search: Optional[str] = Query(None), type: Optional[str] = Query(None), gender: Optional[str] = Query(None), skip: int = Query(default=0, ge=0),  limit: int = 16, db: Session = Depends(get_db)):
+def get_products(categories: Optional[str] = Query(None), search: Optional[str] = Query(None), sort_by: Optional[str] = Query(None), type: Optional[str] = Query(None), gender: Optional[str] = Query(None), skip: int = Query(default=0, ge=0),  limit: int = 16, db: Session = Depends(get_db)):
     query = db.query(models.Product)
 
     if search:
@@ -37,9 +35,22 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
         gender_value = gender_map.get(gender, "U")
         query = query.filter(models.Product.item_gender == gender_value)
 
-    count = query.with_entities(func.count()).scalar()
+    count_query = query.with_entities(func.count())
+    count = count_query.scalar()
+
+    if sort_by:
+        if sort_by == "recente":
+            query = query.order_by(models.Product.created_at.desc())
+        elif sort_by == "pret_asc":
+            query = query.order_by(models.Product.price.asc())
+        elif sort_by == "pret_desc":
+            query = query.order_by(models.Product.price.desc())
+    else:
+        query = query.order_by(models.Product.created_at.desc())
+
     if limit > 16:
         limit = 16
+
     products = query.offset(skip * limit).limit(limit).all()
 
     return {"items": products, "count": count}
@@ -55,14 +66,24 @@ def get_product(id: str, db: Session = Depends(get_db)):
 
 @router.get("/{id}/reviews", response_model=List[schemas.ReviewResponse])
 def get_product_reviews(id: str, db: Session = Depends(get_db)):
-    found_post = db.query(models.Product).filter(models.Product.id == id).first()
+    reviews = (
+        db.query(models.Review, models.User.surname, models.User.name)
+        .join(models.User, models.Review.user_id == models.User.id)
+        .filter(models.Review.product_id == id)
+        .all()
+    )
 
-    if not found_post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {id} nu exista!')
-    
-    reviews = db.query(models.Review).filter(models.Review.product_id == id).all()
+    review_list = []
+    for review, surname, name in reviews:
+        review_dict = {
+            **review.__dict__,
+            'surname': surname,
+            'name': name
+        }
+        review_dict.pop('_sa_instance_state', None)  # Remove SQLAlchemy internal state
+        review_list.append(review_dict)
 
-    return reviews
+    return review_list
 
 @router.post("")
 async def post_product(
