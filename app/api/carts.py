@@ -1,3 +1,4 @@
+import json
 from typing import  Optional
 from app.database import get_db
 from app import models, oauth2, schemas
@@ -5,21 +6,29 @@ from fastapi import Form, status, HTTPException, Depends, APIRouter, Cookie
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime, timezone
+from hashlib import sha256
 
 router = APIRouter(
     tags=['Carts'],
     prefix="/carts"
 )
 
+def generate_cart_item_hash(user_id: str, product_id: str, personalised_fields: dict):
+    to_hash = {
+        "user_id": user_id, \
+        "product_id": product_id, \
+        "personalised_fields": dict(sorted(personalised_fields.items()))
+    }
+
+    json_str = json.dumps(to_hash, sort_keys=True)
+
+    return sha256(json_str.encode('utf-8')).hexdigest()
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def add_to_cart(
     product_id: str = Form(...),
     quantity: int = Form(...),
-    personalised_name: Optional[str] = Form(None),
-    personalised_date: Optional[str] = Form(None), 
-    personalised_message: Optional[str] = Form(None),
-    personalised_size: Optional[str] = Form(None), 
-    personalised_member: Optional[str] = Form(None), 
+    personalised_fields: str = Form(...),
     jwt_content: dict | None = Depends(oauth2.decode_authorization_token),
     guest_token_content: dict | None = Depends(oauth2.decode_guest_token),
     db: Session = Depends(get_db),
@@ -28,74 +37,62 @@ def add_to_cart(
         found_product = db.query(models.Product).filter(models.Product.id == product_id).first()
 
         if not found_product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {cart_item_data.product_id} nu exista')
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {product_id} nu exista')
 
-        cart_item_data = schemas.CartItemBase(
-            product_id=product_id, 
-            quantity=quantity, 
-            product_name=found_product.name,
-            product_type=found_product.type,
-            product_price=found_product.price,
-            product_primary_image=found_product.primary_image,
-            personalised_name=personalised_name, 
-            personalised_message=personalised_message,
-            personalised_date=personalised_date,
-            personalised_size=personalised_size,
-            personalised_member=personalised_member
-        )
-
-        user_id = None
-        guest_id = None
-
-        if jwt_content:
-            user_id = jwt_content.get("user_id")
-        if not user_id and guest_token_content:
-            guest_id = guest_token_content.get("guest_user_id")
+        user_id = jwt_content.get("user_id") if jwt_content else None
+        guest_id = guest_token_content.get("guest_user_id") if (not user_id and guest_token_content) else None
 
         if not user_id and not guest_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Niciun identificator nu a fost oferit in request")
         if user_id and guest_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ambele identificatoare au fost gasite in request")
-
-        if user_id:
-            query_filter = models.Cart.user_id == user_id
-        elif guest_id:
-            query_filter = models.Cart.guest_id == guest_id
-
-        existing_cart_items = db.query(models.Cart).filter(query_filter, models.Cart.product_id == cart_item_data.product_id).all()
-        if existing_cart_items:
-            for cart_item in existing_cart_items:
-                # compare all attributes to check if we are referring to the same object or not
-                if all(
-                    getattr(cart_item, field) == getattr(cart_item_data, field)
-                    for field in ['personalised_name', 'personalised_date', 'personalised_member', 'personalised_message', 'personalised_size']
-                    ):
-                    # remove the intended quantity from the entry
-                    cart_item.quantity += quantity
-
-                    # if it is below 0, delete the cart item from the database
-                    if (cart_item.quantity < 1):
-                        db.delete(cart_item)
-                        db.commit()
-                        return { "status": status.HTTP_204_NO_CONTENT, "detail": f'Obiectul a fost sters cu succes din cos' }
-                    
-                    # refresh creation time
-                    cart_item.created_at = datetime.now(timezone.utc)
-                    db.commit()
-                    db.refresh(cart_item)
-
-                    return { "status": status.HTTP_200_OK, "detail": "Cantitatea din cos a obiectului a fost modificata cu succes", "item": cart_item, "changed_quantity": "yes" }
-
-        if (quantity < 1):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Cantitatea trebuie sa fie mai mare sau egala cu 1')
-
-        cart_item = models.Cart(user_id=user_id, guest_id=guest_id, **cart_item_data.model_dump())
         
-        db.add(cart_item)
-        db.commit()
-        db.refresh(cart_item)
+        query_filter = models.Cart.user_id == user_id if user_id else models.Cart.guest_id == guest_id
+        item_hash = generate_cart_item_hash(user_id, product_id, json.loads(personalised_fields))
 
-        return { "status": status.HTTP_201_CREATED, "detail": "Obiectul a fost adaugat cu succes in cos", "item": cart_item }
+        existing_cart_item = db.query(models.Cart).filter(query_filter, models.Cart.hash == item_hash).first()
+
+        if existing_cart_item:
+            existing_cart_item.quantity += quantity
+
+            if (existing_cart_item.quantity < 1):
+                db.delete(existing_cart_item)
+                db.commit()
+                return { "status": status.HTTP_204_NO_CONTENT, "detail": f'Obiectul a fost sters cu succes din cos' }
+            
+            existing_cart_item.created_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(existing_cart_item)
+
+            return { "status": status.HTTP_200_OK, \
+                     "detail": "Cantitatea din cos a obiectului a fost modificata cu succes", \
+                     "item": existing_cart_item, \
+                     "changed_quantity": "yes" }
+        
+        else:
+            cart_item_data = schemas.CartItemBase(
+                product_id=product_id, 
+                quantity=quantity, 
+                product_name=found_product.name,
+                product_type=found_product.type,
+                product_price=found_product.price,
+                personalised_fields=personalised_fields,
+                product_primary_image=found_product.primary_image,
+            )
+
+            cart_item = models.Cart(user_id=user_id, guest_id=guest_id, hash=item_hash, **cart_item_data.model_dump())
+            
+            db.add(cart_item)
+            db.commit()
+            db.refresh(cart_item)
+
+            return { "status": status.HTTP_201_CREATED, "detail": "Obiectul a fost adaugat cu succes in cos", "item": cart_item }
+    
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON format in personalised_data"
+        )
     
     except HTTPException:
         raise
@@ -158,46 +155,47 @@ def merge_carts(jwt_content: dict | None = Depends(oauth2.decode_authorization_t
 
 @router.get("", response_model=list[schemas.CartItemResponse])
 def get_cart(jwt_content: dict | None = Depends(oauth2.decode_authorization_token), guest_token_content: dict | None = Depends(oauth2.decode_guest_token), db: Session = Depends(get_db)):
-    if not jwt_content or not guest_token_content:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="")
+    user_id = jwt_content.get("user_id") if jwt_content else None
+    guest_id = guest_token_content.get("guest_user_id") if (not user_id and guest_token_content) else None
+
+    if not user_id and not guest_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Niciun identificator nu a fost oferit in request")
+    if user_id and guest_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ambele identificatoare au fost gasite in request")
     
-    user_id = jwt_content.get("user_id")
-
-    if not user_id:
-        guest_id = guest_token_content.get("guest_user_id")
-
-    if user_id:
-        query_filter = models.Cart.user_id == user_id
-    elif guest_id:
-        query_filter = models.Cart.guest_id == guest_id
-
+    query_filter = models.Cart.user_id == user_id if user_id else models.Cart.guest_id == guest_id
     cart_items = db.query(models.Cart).filter(query_filter).all()
 
-    return [schemas.CartItemResponse.model_validate(item) for item in cart_items]
+    return [schemas.CartItemResponse.model_validate({**item.__dict__, "personalised_fields": json.dumps(item.personalised_fields)}) for item in cart_items]
 
 @router.delete("")
-def delete_cart(cart_item_id: Optional[int] = None, jwt_token: str | None = Cookie(None, alias="authToken"), guest_token: str | None = Cookie(None, alias="guestSessionToken"), db: Session = Depends(get_db)):
+def delete_cart(cart_item_id: Optional[int] = None, \
+                jwt_content: dict | None = Depends(oauth2.decode_authorization_token), \
+                guest_token_content: dict | None = Depends(oauth2.decode_guest_token), \
+                db: Session = Depends(get_db)):
+    if not jwt_content and not guest_token_content:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tokenul de autentificare nu exista in headerele requestului")
+    
     user_id = None
     guest_id = None
+    
+    if jwt_content:
+        user_id = jwt_content.get("user_id")
 
-    if jwt_token:
-        user_id = oauth2.decode_authorization_token_with_exception(jwt_token).get("user_id")
-    if not jwt_token and guest_token:
-        guest_id = oauth2.decode_guest_token_with_exception(guest_token).get("guest_user_id")
-
-    if not user_id:
-        user_id = guest_id
+    if guest_token_content:
+        guest_id = guest_token_content.get("guest_user_id")
     
     if cart_item_id:
         existing_cart_item = db.query(models.Cart).filter(models.Cart.id == cart_item_id).first()
+
         if existing_cart_item and (existing_cart_item.user_id == user_id or existing_cart_item.guest_id == guest_id):
             db.delete(existing_cart_item)
             db.commit()
             return {"status": status.HTTP_200_OK, "detail": f'Obiectul cu id-ul {cart_item_id} a fost eliminat cu succes din cos'}
         
-        return {"status": status.HTTP_204_NO_CONTENT, "detail": f'Obiectul cu id-ul {cart_item_id} nu exista in cosul tau de cumparaturi'}
+        return {"status": status.HTTP_404_NOT_FOUND, "detail": f'Obiectul cu id-ul {cart_item_id} nu exista in cosul tau de cumparaturi'}
 
-    db.query(models.Cart).filter(models.Cart.user_id == user_id).delete()
+    db.query(models.Cart).filter(or_(models.Cart.user_id == user_id, models.Cart.guest_id == guest_id)).delete()
     db.commit()
 
     return {"status": status.HTTP_200_OK, "detail": "Cosul a fost golit cu succes"}

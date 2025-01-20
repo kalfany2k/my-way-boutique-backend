@@ -41,6 +41,8 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
     if sort_by:
         if sort_by == "recente":
             query = query.order_by(models.Product.created_at.desc())
+        elif sort_by == "popularitate":
+            query = query.order_by(models.Product.total_sales.desc())
         elif sort_by == "pret_asc":
             query = query.order_by(models.Product.price.asc())
         elif sort_by == "pret_desc":

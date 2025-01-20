@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Json
 from datetime import datetime
 from .enums import GenderEnum, ItemTypesEnum, ItemCategoriesEnum
 import re
@@ -93,11 +93,7 @@ class CartItemBase(BaseModel):
     product_type: str
     product_price: float
     product_primary_image: str
-    personalised_name: Optional[str]
-    personalised_date: Optional[str]
-    personalised_message: Optional[str]
-    personalised_size: Optional[str]
-    personalised_member: Optional[str]
+    personalised_fields: Optional[Json] = None
 
     class Config:
         from_attributes = True

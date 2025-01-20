@@ -60,11 +60,8 @@ class Cart(Base):
     product_price = Column(Integer, nullable=False)
     product_type = Column(String, nullable=False)
     product_primary_image = Column(String, nullable=False)
-    personalised_name = Column(String, nullable=True)
-    personalised_date = Column(String, nullable=True)
-    personalised_message = Column(String, nullable=True)
-    personalised_size = Column(String, nullable=True)
-    personalised_member = Column(String, nullable=True)
+    personalised_fields = Column(JSON, nullable=True)
+    hash = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False, server_default=text('1'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
 
