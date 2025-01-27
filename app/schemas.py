@@ -112,8 +112,8 @@ class ReviewBase(BaseModel):
 
 class ReviewResponse(ReviewBase):
     created_at: datetime
-    surname: str
-    name: str
+    author_surname: str
+    author_name: str
 
     class Config:
         from_attributes = True

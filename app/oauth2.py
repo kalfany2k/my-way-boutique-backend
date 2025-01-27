@@ -19,7 +19,8 @@ def create_access_token(data: dict):
     to_encode = data.copy()
 
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire.timestamp()})
+    print(f'Logged expiration: {expire}')
 
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -39,6 +40,8 @@ def decode_authorization_token_with_exception(credentials: HTTPAuthorizationCred
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare expirat")
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare invalid")
     
@@ -49,14 +52,17 @@ def decode_authorization_token(credentials: Optional[HTTPAuthorizationCredential
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare expirat")
     except jwt.PyJWTError:
-        return None
-
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare invalid")
     
 def decode_guest_token_with_exception(guest_token: str = Cookie(None, alias="guestSessionToken")):
     try:
         payload = jwt.decode(guest_token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare expirat")
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token de guest invalid")
     
@@ -66,8 +72,10 @@ def decode_guest_token(guest_token: str | None = Cookie(None, alias="guestSessio
     try:
         payload = jwt.decode(guest_token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare expirat")
     except jwt.PyJWTError:
-        return None
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de autentificare invalid")
 
 def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:

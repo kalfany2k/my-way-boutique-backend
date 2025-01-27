@@ -24,6 +24,29 @@ def generate_cart_item_hash(user_id: str, product_id: str, personalised_fields: 
 
     return sha256(json_str.encode('utf-8')).hexdigest()
 
+def merge_carts(user_id: str, guest_id: str, db: Session):
+    try:
+        guest_cart_items = db.query(models.Cart).filter(models.Cart.guest_id == guest_id).all()
+        if not guest_cart_items:
+            raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Cosul de cumparaturi al vizitatorului este gol")
+        
+        for guest_cart_item in guest_cart_items:
+            guest_cart_item.user_id = user_id
+            guest_cart_item.guest_id = None
+        
+        db.commit()  # Commit once after all updates
+        return guest_cart_items
+        
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Eroare la unificarea cosurilor: {str(e)}"
+        )
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def add_to_cart(
     product_id: str = Form(...),
@@ -96,55 +119,6 @@ def add_to_cart(
     
     except HTTPException:
         raise
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"O eroare neasteptata s-a petrecut: {str(e)}"
-        )
-    
-@router.post("/merge")
-def merge_carts(jwt_content: dict | None = Depends(oauth2.decode_authorization_token), guest_token_content: dict | None = Depends(oauth2.decode_guest_token), db: Session = Depends(get_db)):
-    if not jwt_content or not guest_token_content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="user_id sau guest_id invalid"
-        )
-    
-    user_id = jwt_content.get("user_id")
-    guest_id = guest_token_content.get("guest_user_id")
-    
-    try:
-        user_cart_item = db.query(models.Cart).filter(models.Cart.user_id == user_id).first()
-        if user_cart_item:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Utilizatorul cu id-ul {user_id} are deja produse in cos'
-            )
-
-        guest_cart_items = db.query(models.Cart).filter(models.Cart.guest_id == guest_id).all()
-
-        if not guest_cart_items:
-            return {
-                "status_code": status.HTTP_200_OK,
-                "detail": "Nu exista produse in cosul guestului pentru transfer"
-            }
-        
-        for guest_cart_item in guest_cart_items:
-            guest_cart_item.guest_id = None
-            guest_cart_item.user_id = user_id
-
-        db.commit()
-
-        return {
-            "status_code": status.HTTP_200_OK,
-            "detail": "Cosurile au fost unite cu succes"
-        }
-
-    except HTTPException as he:
-        db.rollback()
-        raise he
 
     except Exception as e:
         db.rollback()

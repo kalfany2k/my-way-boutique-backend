@@ -73,6 +73,8 @@ class Review(Base):
     product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE"))
     message = Column(String, nullable=True)
     stars = Column(Integer, nullable=False)
+    author_surname = Column(String, nullable=False)
+    author_name = Column(String, nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, server_default=text('now()'))
 
     __table_args__ = (

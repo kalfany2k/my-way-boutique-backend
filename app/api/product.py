@@ -66,26 +66,11 @@ def get_product(id: str, db: Session = Depends(get_db)):
     
     return found_post
 
-@router.get("/{id}/reviews", response_model=List[schemas.ReviewResponse])
-def get_product_reviews(id: str, db: Session = Depends(get_db)):
-    reviews = (
-        db.query(models.Review, models.User.surname, models.User.name)
-        .join(models.User, models.Review.user_id == models.User.id)
-        .filter(models.Review.product_id == id)
-        .all()
-    )
+@router.get("/{product_id}/reviews", response_model=List[schemas.ReviewResponse])
+def get_product_reviews(product_id: str, db: Session = Depends(get_db)):
+    reviews = db.query(models.Review).filter(models.Review.product_id == product_id).all()
 
-    review_list = []
-    for review, surname, name in reviews:
-        review_dict = {
-            **review.__dict__,
-            'surname': surname,
-            'name': name
-        }
-        review_dict.pop('_sa_instance_state', None)  # Remove SQLAlchemy internal state
-        review_list.append(review_dict)
-
-    return review_list
+    return reviews
 
 @router.post("")
 async def post_product(

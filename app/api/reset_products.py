@@ -56,7 +56,7 @@ def generate_mock_products(db_session, count=50):
             categories=categories,
             price=Decimal(random.uniform(10, 500)).quantize(Decimal("0.01")),
             primary_image=f"https://example.com/images/{uuid4()}.jpg",
-            secondary_images=[f"https://example.com/images/{uuid4()}.jpg" for _ in range(random.randint(0, 3))],
+            secondary_images=[f"https://example.com/images/{uuid4()}.jpg" for _ in range(random.randint(0, 4))],
             created_at=datetime.now(timezone.utc)
         )
         

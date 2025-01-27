@@ -26,22 +26,26 @@ def post_review(product_id: str, message: str = Form(None), stars: int = Form(..
     if not 1 <= stars <= 5:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Stars must be between 1 and 5"
+            detail="Reviewul trebuie sa aiba intre 1 si 5 stele"
         )
 
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {product_id} nu exista')
     
-    existing_review = db.query(models.Review)\
-                        .filter(models.Review.product_id == product_id, models.Review.user_id == token.get("user_id"))\
+    existing_review = db.query(models.Review) \
+                        .filter(models.Review.product_id == product_id, models.Review.user_id == token.get("user_id")) \
                         .first()
     if existing_review:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ai dat deja o recenzie acestui produs")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ai acordat deja o recenzie acestui produs")
     
     review_data = schemas.ReviewBase(product_id=product_id, user_id=token.get("user_id"), message=message, stars=stars)
 
-    new_review = models.Review(**review_data.model_dump())
+    user_data = db.query(models.User).filter(models.User.id == token.get("user_id")).first()
+    if not user_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizatorul nu exista")
+
+    new_review = models.Review(author_name=user_data.name, author_surname=user_data.surname, **review_data.model_dump())
 
     try:
         db.add(new_review)
