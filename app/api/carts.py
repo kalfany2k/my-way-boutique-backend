@@ -66,9 +66,9 @@ def add_to_cart(
         guest_id = guest_token_content.get("guest_user_id") if (not user_id and guest_token_content) else None
 
         if not user_id and not guest_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Niciun identificator nu a fost oferit in request")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Niciun identificator nu a fost oferit in request")
         if user_id and guest_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ambele identificatoare au fost gasite in request")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ambele identificatoare au fost gasite in request")
         
         query_filter = models.Cart.user_id == user_id if user_id else models.Cart.guest_id == guest_id
         item_hash = generate_cart_item_hash(user_id, product_id, json.loads(personalised_fields))
@@ -133,9 +133,9 @@ def get_cart(jwt_content: dict | None = Depends(oauth2.decode_authorization_toke
     guest_id = guest_token_content.get("guest_user_id") if (not user_id and guest_token_content) else None
 
     if not user_id and not guest_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Niciun identificator nu a fost oferit in request")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Niciun identificator nu a fost oferit in headerele requestului")
     if user_id and guest_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ambele identificatoare au fost gasite in request")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ambele identificatoare au fost gasite in headerele requestului") 
     
     query_filter = models.Cart.user_id == user_id if user_id else models.Cart.guest_id == guest_id
     cart_items = db.query(models.Cart).filter(query_filter).all()
