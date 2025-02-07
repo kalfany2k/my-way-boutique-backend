@@ -31,7 +31,7 @@ def post_review(product_id: str, message: str = Form(None), stars: int = Form(..
 
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {product_id} nu exista')
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Produsul cu id-ul {product_id} nu exista')
     
     existing_review = db.query(models.Review) \
                         .filter(models.Review.product_id == product_id, models.Review.user_id == token.get("user_id")) \

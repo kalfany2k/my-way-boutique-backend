@@ -4,6 +4,7 @@ from fastapi import status, HTTPException, Depends, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
+from ..ses import send_email_via_ses
 
 router = APIRouter(
     tags=['Login']

@@ -2,11 +2,12 @@ import json
 from typing import  Optional
 from app.database import get_db
 from app import models, oauth2, schemas
-from fastapi import Form, status, HTTPException, Depends, APIRouter, Cookie
+from fastapi import Form, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime, timezone
 from hashlib import sha256
+
 
 router = APIRouter(
     tags=['Carts'],
