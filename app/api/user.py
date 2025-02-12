@@ -6,6 +6,7 @@ from fastapi import Form, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 from app.ses import send_email_via_ses
+import app.email_templates as templates
 
 router = APIRouter(
     prefix="/users",
@@ -34,6 +35,8 @@ def create_user(user: schemas.UserCreate, guest_token_content: dict | None = Dep
                 if e.status_code != status.HTTP_204_NO_CONTENT:
                     # Only re-raise if it's not a "cart empty" message
                     raise
+
+        send_email_via_ses(recipient=new_user.email, subject="Bine ai venit pe MWB!", message_text="", message_html=templates.WELCOME_EMAIL_TEMPLATE.format(name=new_user.name))
             
         return status.HTTP_201_CREATED
         
@@ -74,19 +77,17 @@ def reset_passkey(email: str = Form(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email-ul lipseste")
     
     user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilizatorul cu acest e-mail nu exista")
-    
-    to_encode = {
-        "user_id": user.id,
-        "email": user.email,
-        "token_role": "reset_password",
-        "exp": datetime.now() + timedelta(minutes=240)
-    }
+    if user:
+        to_encode = {
+            "user_id": user.id,
+            "email": user.email,
+            "token_role": "reset_password",
+            "exp": datetime.now() + timedelta(minutes=240)
+        }
 
-    send_email_via_ses(user.email, "Resetare parola", f"Acceseaza link-ul pentru a reseta parola: https://mwb.local/reset-password?token={oauth2.create_access_token(to_encode)}")
+        send_email_via_ses(user.email, "Resetare parola", f"Acceseaza link-ul pentru a reseta parola: https://mwb.local/reset-password?token={oauth2.create_access_token(to_encode)}")
 
-    return {"message": "Email-ul de resetare a parolei a fost trimis"}
+    return {"status": status.HTTP_200_OK, "detail": "Daca utilizatorul cu acest e-mail exista, linkul de resetare a parolei a fost trimis"}
 
 @router.get("/{id}", response_model=schemas.UserBase)
 def get_user(id: int, db: Session = Depends(get_db)):

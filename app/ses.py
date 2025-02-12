@@ -1,4 +1,6 @@
 import boto3
+from botocore.exceptions import ClientError
+from fastapi import HTTPException
 from .aws_config import settings
 
 ses = boto3.client(
@@ -11,22 +13,28 @@ ses = boto3.client(
 def send_email_via_ses(
         recipient: str,
         subject: str,
-        message_text: str,
+        message_text: str = None,
         message_html: str = None,
 ):
     try:
-        message_body = {"Text": {"Data": message_text}}
-        if message_html:
-            message_body["Html"] = {"Data": message_html}
-
         response = ses.send_email(
             Source="extremesurvivalboys@gmail.com",
             Destination={"ToAddresses": [recipient]},
             Message={
-                "Subject": {"Data": subject},
-                "Body": message_body,
+                "Subject": {
+                    "Data": subject
+                    },
+                "Body": {
+                    "Text": {
+                        "Data": message_text
+                    },
+                    "Html": {
+                        "Data": message_html
+                    } 
+                }
             },
         )
-        return {"message": "Email sent successfully", "message_id": response["MessageId"]}
-    except Exception as e:
-        return {"error": str(e)}
+        print(f'Seding email to {recipient}...')
+        return response
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {e.response['Error']['Message']}")
