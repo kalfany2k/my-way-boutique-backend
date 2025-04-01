@@ -1,4 +1,6 @@
 ````markdown
+Available preview: https://api.kalfany.xyz/
+
 # MWB Backend
 
 Backend API for MWB (My Wedding Boutique) e-commerce platform.
