@@ -65,11 +65,20 @@ class ProductResponse(ProductBase):
     rating: Optional[float]
     primary_image: Optional[str] = None
     secondary_images: Optional[List[str]] = None
+    set_type: Optional[str] = None
+    primary_product_ids: Optional[List[str]] = None
+    secondary_product_ids: Optional[List[str]] = None
     total_sales: int
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+class SetBase(BaseModel):
+    id: str
+    set_type: str
+    primary_product_ids: List[str]
+    secondary_product_ids: Optional[List[str]] = None
 
 ''''END-PRODUCT'''
 
@@ -80,10 +89,6 @@ class QueryResponse(BaseModel):
     count: int
 
 ''''END-QUERY'''
-
-class SetBase(BaseModel):
-    set_name: str
-    set_items: List[str]
 
 class CartItemBase(BaseModel):
     _user_id: int

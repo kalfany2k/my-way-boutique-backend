@@ -13,27 +13,47 @@ router = APIRouter(
 )
 
 @router.get("", response_model=schemas.QueryResponse)
-def get_products(categories: Optional[str] = Query(None), search: Optional[str] = Query(None), sort_by: Optional[str] = Query(None), type: Optional[str] = Query(None), gender: Optional[str] = Query(None), skip: int = Query(default=0, ge=0),  limit: int = 16, db: Session = Depends(get_db)):
+def get_products(categories: Optional[str] = Query(None), search: Optional[str] = Query(None), 
+                 sort_by: Optional[str] = Query(None), type: Optional[str] = Query(None), 
+                 set_type: Optional[str] = Query(None), gender: Optional[str] = Query(None), 
+                 skip: int = Query(default=0, ge=0),  limit: int = 16, db: Session = Depends(get_db)
+                ):
     query = db.query(models.Product)
 
+    # Apply search term
     if search:
         query = query.filter(models.Product.name.ilike(f"%{search}%"))
 
+    # Apply categories
     if categories:
         categories = categories.split("+")
         query = query.filter(models.Product.categories.contains(categories))
 
+    # Apply type
     if type:
         try: 
             type = enums.ItemTypesEnum[type]
             query = query.filter(models.Product.type == type)
         except:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Tipul de produs {type} nu exista')
+    
+    # Apply exception, anti DDOS measure
+    if not type and not categories:
+        raise HTTPException
 
+    # Apply gender 
     if gender:
         gender_map = {"fete": "F", "baieti": "M"}
         gender_value = gender_map.get(gender, "U")
         query = query.filter(models.Product.item_gender == gender_value)
+
+    # Join with ProductSet if type is set
+    if type == enums.ItemTypesEnum.set:
+        query.join(models.ProductSet, models.Product.id == models.ProductSet.id)
+    
+    # Apply set type
+    if set_type:
+        query = query.filter(models.ProductSet.set_type == set_type)
 
     count_query = query.with_entities(func.count())
     count = count_query.scalar()
@@ -53,7 +73,7 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
     if limit > 16:
         limit = 16
 
-    products = query.offset(skip * limit).limit(limit).all()
+    products = query.offset(skip * limit).limit(limit).all() 
 
     return {"items": products, "count": count}
 
@@ -88,6 +108,9 @@ async def post_product(
     item_data = schemas.ProductBase(id=id, name=name, item_gender=item_gender, type=type, price=price, categories=categories)
     MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
+    if id.find(" ") != -1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Id-ul produsului nu poate contine spatii')
+
     if db.query(models.Product).filter(models.Product.id == item_data.id).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul cu id-ul {item_data.id} deja exista')
     
@@ -100,16 +123,18 @@ async def post_product(
     if int(primary_image.headers.get('content-length', 0)) > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f'Dimensiunea imaginii principale este mai mare de 5MB')
     
-    for image in secondary_images:
-        if int(image.headers.get('content-length', 0)) > MAX_SIZE:
-            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f'Dimensiunea imaginii {image.filename} este mai mare de 5MB')
+    if secondary_images:
+        for image in secondary_images:
+            if int(image.headers.get('content-length', 0)) > MAX_SIZE:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f'Dimensiunea imaginii {image.filename} este mai mare de 5MB')
 
     try:
         primary_image_url = await upload_file_to_s3(primary_image, item_data.type.value)
         secondary_images_urls = []
-        for image in secondary_images:
-            url = await upload_file_to_s3(image, item_data.type.value)
-            secondary_images_urls.append(url)
+        if secondary_images:
+            for image in secondary_images:
+                url = await upload_file_to_s3(image, item_data.type.value)
+                secondary_images_urls.append(url)
 
         # Create new product instance
         new_item = models.Product(**item_data.model_dump())

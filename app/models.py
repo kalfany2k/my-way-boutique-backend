@@ -1,5 +1,5 @@
 from .database import Base
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, Numeric, Float, UniqueConstraint, JSON
+from sqlalchemy import Column, ForeignKey, Integer, String, Numeric, UniqueConstraint, JSON
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.sqltypes import TIMESTAMP
@@ -25,29 +25,19 @@ class Product(Base):
     type = Column(String, nullable=False)
     categories = Column(ARRAY(String), nullable=True)
     price = Column(Numeric(10, 2), nullable=False)
-    rating = Column(Numeric(10, 2), nullable=True)
+    rating = Column(Numeric(10, 2), nullable=True) # TO BE CHANGED. ONLY FOR TESTING
     primary_image = Column(String, nullable=True)
     secondary_images = Column(ARRAY(String), nullable=True)
     total_sales = Column(Integer, nullable=False, server_default=text('0'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
 
-class Set(Base):
-    __tablename__ = "sets"
+class ProductSet(Base):
+    __tablename__ = "product_sets"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    set_name = Column(String, unique=True, nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
-    
-class SetItem(Base):
-    __tablename__ = "set_items"
-
-    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    set_id = Column(Integer, ForeignKey("sets.id"))
-    product_id = Column(String, ForeignKey("products.id"))
-
-    __table_args__ = (
-        UniqueConstraint('set_id', 'product_id', name='uix_set_product'),
-    )
+    id = Column(String, ForeignKey("products.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    set_type = Column(String, nullable=False)
+    primary_product_ids = Column(ARRAY(String), nullable=False)
+    secondary_product_ids = Column(ARRAY(String), nullable=True)
 
 class Cart(Base):
     __tablename__ = "carts"

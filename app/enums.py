@@ -12,6 +12,7 @@ class ItemTypesEnum(str, Enum):
     prosop = "prosop"
     perie = "perie"
     oglinda = "oglinda"
+    set = "set"
 
 class ItemCategoriesEnum(str, Enum):
     botez = "botez"
@@ -23,6 +24,12 @@ class ItemCategoriesEnum(str, Enum):
     craciun = "craciun"
     paste = "paste"
     economic = "economic"
+
+class SetTypesEnum(str, Enum):
+    prima_baie = "prima_baie"
+    prima_aniversare = "prima_aniversare"
+    mot = "mot"
+    turta = "turta"
 
 class GenderEnum(str, Enum):
     M = "M"
