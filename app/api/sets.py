@@ -39,8 +39,6 @@ async def post_set(
 
     if existing_set:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Setul cu id-ul {id} deja exista')
-    
-    print(primary_product_ids, len(primary_product_ids))
 
     for product_id in primary_product_ids:
         existing_product = db.query(models.Product).filter(models.Product.id == product_id).first()
@@ -54,8 +52,10 @@ async def post_set(
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Produsul secundar cu id-ul {product_id} nu poate fi adaugat in set, nu exista')
 
     try:
+        # Create a new product of type set that will be displayed on the shopping page
         await post_product(id=id, name=name, item_gender=item_gender, type="set", price=price, categories=categories, primary_image=primary_image, secondary_images=secondary_images, db=db, token=token)
 
+        # Create the entry linking the "additional details" to the product itself in a separate table
         set_data = schemas.SetBase(id=id, set_type=set_type, primary_product_ids=primary_product_ids, secondary_product_ids=secondary_product_ids)
         new_set = models.ProductSet(**set_data.model_dump())
         

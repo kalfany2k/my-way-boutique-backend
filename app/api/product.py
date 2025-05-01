@@ -4,7 +4,7 @@ from app import models, oauth2, schemas, enums
 from app.database import get_db
 from app.s3 import upload_file_to_s3, delete_file_from_s3
 from fastapi import status, HTTPException, Depends, APIRouter, UploadFile, File, Form, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 from typing import List
 
 router = APIRouter(
@@ -31,15 +31,18 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
 
     # Apply type
     if type:
-        try: 
+        try:
             type = enums.ItemTypesEnum[type]
             query = query.filter(models.Product.type == type)
         except:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Tipul de produs {type} nu exista')
-    
-    # Apply exception, anti DDOS measure
-    if not type and not categories:
-        raise HTTPException
+        
+    if type == "set" and set_type:
+        # If we are querying sets, then we can inner join and retrieve only those.
+        query = query.join(models.ProductSet).filter(models.ProductSet.set_type == set_type)
+    else:
+        # Otherwise, use outer join to retrieve all results.
+        query = query.outerjoin(models.ProductSet)
 
     # Apply gender 
     if gender:
@@ -47,15 +50,9 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
         gender_value = gender_map.get(gender, "U")
         query = query.filter(models.Product.item_gender == gender_value)
 
-    # Join with ProductSet if type is set
-    if type == enums.ItemTypesEnum.set:
-        query.join(models.ProductSet, models.Product.id == models.ProductSet.id)
-    
-    # Apply set type
-    if set_type:
-        query = query.filter(models.ProductSet.set_type == set_type)
-
+    # Adds another field to the SELECT SQL statement, which counts the number of products the query has retrieved
     count_query = query.with_entities(func.count())
+    # Transforms to number or None, given the count
     count = count_query.scalar()
 
     if sort_by:
@@ -70,10 +67,9 @@ def get_products(categories: Optional[str] = Query(None), search: Optional[str] 
     else:
         query = query.order_by(models.Product.created_at.desc())
 
-    if limit > 16:
-        limit = 16
+    query = query.options(contains_eager(models.Product.product_set))
 
-    products = query.offset(skip * limit).limit(limit).all() 
+    products = query.offset(skip * limit).limit(min(limit, 16)).all()
 
     return {"items": products, "count": count}
 

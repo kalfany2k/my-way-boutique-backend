@@ -3,6 +3,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Numeric, UniqueConst
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.sqltypes import TIMESTAMP
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
@@ -30,6 +31,8 @@ class Product(Base):
     secondary_images = Column(ARRAY(String), nullable=True)
     total_sales = Column(Integer, nullable=False, server_default=text('0'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+
+    product_set = relationship("ProductSet", uselist=False)
 
 class ProductSet(Base):
     __tablename__ = "product_sets"

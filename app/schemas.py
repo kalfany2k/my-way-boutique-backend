@@ -51,7 +51,7 @@ class UserResponse(UserBase):
 
 ''''END-USER'''
     
-''''BEGIN-PRODUCT'''    
+''''BEGIN-PRODUCT'''
 
 class ProductBase(BaseModel):
     id: str
@@ -61,14 +61,16 @@ class ProductBase(BaseModel):
     type: ItemTypesEnum
     price: float
 
+class ProductSet(BaseModel):
+    set_type: str
+    primary_product_ids: List[str]
+    secondary_product_ids: Optional[List[str]] = None
+
 class ProductResponse(ProductBase):
     rating: Optional[float]
     primary_image: Optional[str] = None
     secondary_images: Optional[List[str]] = None
-    set_type: Optional[str] = None
-    primary_product_ids: Optional[List[str]] = None
-    secondary_product_ids: Optional[List[str]] = None
-    total_sales: int
+    product_set: Optional[ProductSet] = None
     created_at: datetime
 
     class Config:
